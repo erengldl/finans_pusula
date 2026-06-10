@@ -31,7 +31,7 @@ export async function POST(request: Request) {
         startYear: values.startYear,
         contributionTiming: values.contributionTiming,
         contributionIncreaseType: values.contributionIncreaseType,
-        contributionIncreaseRate: values.contributionIncreaseRate,
+        contributionIncreaseRate: values.contributionIncreaseRate ?? 0,
         inflation: {
           enabled: true,
           annualRate: values.inflationRate,
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       startYear: values.startYear,
       contributionTiming: values.contributionTiming,
       contributionIncreaseType: values.contributionIncreaseType,
-      contributionIncreaseRate: values.contributionIncreaseRate,
+      contributionIncreaseRate: values.contributionIncreaseRate ?? 0,
       inflation: {
         enabled: true,
         annualRate: values.inflationRate,

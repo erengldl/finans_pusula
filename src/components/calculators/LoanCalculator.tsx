@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch, type DefaultValues } from "react-hook-form";
 
 import { CurrencyInput } from "@/components/CurrencyInput";
 import { DonutChart } from "@/components/DonutChart";
@@ -15,6 +15,8 @@ import { LoanForecastPanel } from "@/components/LoanForecastPanel";
 import { PaymentScheduleTable } from "@/components/PaymentScheduleTable";
 import { PercentInput } from "@/components/PercentInput";
 import { ResultCard } from "@/components/ResultCard";
+import { CalculationEmptyState } from "@/components/calculators/CalculationEmptyState";
+import { CalculationSubmitButton } from "@/components/calculators/CalculationSubmitButton";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,9 +27,10 @@ import {
 import { FieldGroup } from "@/components/ui/field";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { calculateLoan, type LoanResult, type LoanType } from "@/lib/finance";
+import { optionalNumberField } from "@/lib/form-utils";
 import { formatCurrency, formatDateTimeLabel, formatPercent } from "@/lib/formatters";
 import type { LoanMarketSnapshot } from "@/lib/loan-market-data";
-import { getDefaultInflationRate, getLoanReferenceRate } from "@/lib/reference-data";
+import { getLoanReferenceRate } from "@/lib/reference-data";
 import { loanSchema, type LoanFormInput, type LoanFormValues } from "@/lib/validation";
 
 const loanTypeLabels: Record<LoanType, string> = {
@@ -36,16 +39,28 @@ const loanTypeLabels: Record<LoanType, string> = {
   mortgage: "Konut Kredisi",
 };
 
+const DEFAULT_LOAN_TYPE: LoanType = "personal";
 const defaultLoanReference = getLoanReferenceRate("personal");
 
-const loanDefaults: LoanFormValues = {
-  loanType: "personal",
-  principal: 250000,
-  months: 36,
-  monthlyRate: defaultLoanReference.averageMonthlyRate,
-  extraFees: defaultLoanReference.typicalFees,
+const MINIMUM_CALCULATION_DELAY_MS = 300;
+
+const loanDefaults: DefaultValues<LoanFormInput> = {
+  loanType: DEFAULT_LOAN_TYPE,
+  principal: undefined,
+  months: undefined,
+  monthlyRate: undefined,
+  extraFees: undefined,
   includeInflation: false,
-  inflationRate: getDefaultInflationRate(),
+  inflationRate: undefined,
+};
+
+const loanResetValues: DefaultValues<LoanFormInput> = {
+  ...loanDefaults,
+  principal: "",
+  months: "",
+  monthlyRate: "",
+  extraFees: "",
+  inflationRate: "",
 };
 
 function getCalculationVisibilityLabel(isExample: boolean) {
@@ -73,11 +88,12 @@ function toLoanResult(values: LoanFormValues) {
 }
 
 export function LoanCalculator() {
-  const [result, setResult] = useState<LoanResult>(() => toLoanResult(loanDefaults));
-  const [submittedValues, setSubmittedValues] = useState<LoanFormValues>(loanDefaults);
+  const [result, setResult] = useState<LoanResult | null>(null);
+  const [submittedValues, setSubmittedValues] = useState<LoanFormValues | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
   const [loanMarket, setLoanMarket] = useState<LoanMarketSnapshot | null>(null);
   const [loanMarketError, setLoanMarketError] = useState<string | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
   const {
     register,
     handleSubmit,
@@ -91,14 +107,19 @@ export function LoanCalculator() {
   });
   const loanType = useWatch({ control, name: "loanType" });
   const watchedInflationRate = useWatch({ control, name: "inflationRate" });
-  const selectedLoanType = (loanType as LoanType | undefined) ?? loanDefaults.loanType;
+  const selectedLoanType = (loanType as LoanType | undefined) ?? DEFAULT_LOAN_TYPE;
   const referenceRate =
     loanMarket?.referenceRates.find((item) => item.loanType === selectedLoanType) ??
     getLoanReferenceRate(selectedLoanType);
   const formInflationRate = Number(watchedInflationRate ?? 0);
+  const submittedReferenceRate = submittedValues
+    ? getReferenceRateForType(submittedValues.loanType)
+    : defaultLoanReference;
   const isExampleCalculation =
-    submittedValues.monthlyRate === referenceRate.averageMonthlyRate &&
-    submittedValues.extraFees === referenceRate.typicalFees;
+    submittedValues !== null &&
+    submittedValues.monthlyRate === submittedReferenceRate.averageMonthlyRate &&
+    submittedValues.extraFees === submittedReferenceRate.typicalFees;
+  const hasResult = result !== null && submittedValues !== null;
 
   function getReferenceRateForType(loanTypeToApply: LoanType) {
     return (
@@ -153,16 +174,28 @@ export function LoanCalculator() {
     return () => controller.abort();
   }, []);
 
-  function onSubmit(values: LoanFormValues) {
-    setResult(toLoanResult(values));
-    setSubmittedValues(values);
+  async function onSubmit(values: LoanFormValues) {
+    setIsCalculating(true);
+
+    try {
+      const [nextResult] = await Promise.all([
+        Promise.resolve(toLoanResult(values)),
+        new Promise((resolve) => setTimeout(resolve, MINIMUM_CALCULATION_DELAY_MS)),
+      ]);
+
+      setResult(nextResult);
+      setSubmittedValues(values);
+    } finally {
+      setIsCalculating(false);
+    }
   }
 
   function onClear() {
-    reset(loanDefaults);
-    setResult(toLoanResult(loanDefaults));
-    setSubmittedValues(loanDefaults);
+    reset(loanResetValues);
+    setResult(null);
+    setSubmittedValues(null);
     setShowSchedule(false);
+    setIsCalculating(false);
   }
 
   return (
@@ -174,7 +207,7 @@ export function LoanCalculator() {
         <CardContent>
           <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <Tabs
-              value={loanType}
+              value={selectedLoanType}
               onValueChange={(value) => {
                 const nextLoanType = value as LoanType;
 
@@ -182,7 +215,6 @@ export function LoanCalculator() {
                   shouldDirty: true,
                   shouldValidate: true,
                 });
-                applyReferenceValues(nextLoanType);
               }}
             >
               <TabsList aria-label="Kredi tipi">
@@ -224,27 +256,31 @@ export function LoanCalculator() {
               <CurrencyInput
                 id="principal"
                 label="Kredi tutarı"
+                placeholder="250.000 TL"
                 error={errors.principal?.message}
-                {...register("principal", { valueAsNumber: true })}
+                {...register("principal", optionalNumberField)}
               />
               <DurationInput
                 id="months"
                 label="Vade"
                 unit="ay"
+                placeholder="36"
                 error={errors.months?.message}
-                {...register("months", { valueAsNumber: true })}
+                {...register("months", optionalNumberField)}
               />
               <PercentInput
                 id="monthlyRate"
                 label="Aylık faiz oranı"
+                placeholder="3,29"
                 error={errors.monthlyRate?.message}
-                {...register("monthlyRate", { valueAsNumber: true })}
+                {...register("monthlyRate", optionalNumberField)}
               />
               <CurrencyInput
                 id="extraFees"
                 label="Masraf / sigorta"
+                placeholder="3.500 TL"
                 error={errors.extraFees?.message}
-                {...register("extraFees", { valueAsNumber: true })}
+                {...register("extraFees", optionalNumberField)}
               />
               <Controller
                 control={control}
@@ -276,18 +312,25 @@ export function LoanCalculator() {
                     <PercentInput
                       id="inflationRate"
                       label="Yıllık enflasyon varsayımı"
+                      placeholder="30"
                       error={errors.inflationRate?.message}
-                      {...register("inflationRate", { valueAsNumber: true })}
+                      {...register("inflationRate", optionalNumberField)}
                     />
                   </InflationToggle>
                 )}
               />
             </FieldGroup>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Button type="submit" className="sm:flex-1">
-                Sonucu göster
-              </Button>
-              <Button type="button" variant="outline" onClick={onClear}>
+              <CalculationSubmitButton
+                isCalculating={isCalculating}
+                className="min-w-[11rem] justify-center sm:flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClear}
+                disabled={isCalculating}
+              >
                 Sıfırla
               </Button>
             </div>
@@ -296,15 +339,17 @@ export function LoanCalculator() {
       </Card>
 
       <div className="flex min-w-0 flex-col gap-6">
-        <Card className="border-primary/20 bg-secondary/35">
+        {!hasResult ? <CalculationEmptyState /> : null}
+        {hasResult ? (
+          <Card className="border-primary/20 bg-secondary/35">
           <CardHeader>
             <CardTitle>{getCalculationVisibilityLabel(isExampleCalculation)}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm leading-6 text-muted-foreground">
             <p>{getCalculationVisibilityNote(isExampleCalculation)}</p>
             <p>
-              Referans oran: {formatPercent(referenceRate.averageMonthlyRate)} / masraf:{" "}
-              {formatCurrency(referenceRate.typicalFees)}
+              Referans oran: {formatPercent(submittedReferenceRate.averageMonthlyRate)} / masraf:{" "}
+              {formatCurrency(submittedReferenceRate.typicalFees)}
             </p>
             <p>
               Enflasyon:{" "}
@@ -320,8 +365,10 @@ export function LoanCalculator() {
             </p>
           </CardContent>
         </Card>
+        ) : null}
 
-        <section className="grid min-w-0 gap-4 sm:grid-cols-2">
+        {hasResult ? (
+          <section className="grid min-w-0 gap-4 sm:grid-cols-2">
           <ResultCard
             label="Nominal aylık taksit"
             value={formatCurrency(result.nominalMonthlyPayment)}
@@ -352,8 +399,10 @@ export function LoanCalculator() {
             }
           />
         </section>
+        ) : null}
 
-        <Card>
+        {hasResult ? (
+          <Card>
           <CardHeader>
             <CardTitle>Toplamın dağılımı</CardTitle>
           </CardHeader>
@@ -361,16 +410,18 @@ export function LoanCalculator() {
             <DonutChart data={result.chartData} surface="loan" />
           </CardContent>
         </Card>
+        ) : null}
 
-        <LoanBankOffersPanel values={submittedValues} />
+        {hasResult ? <LoanBankOffersPanel values={submittedValues} /> : null}
 
-        <LoanForecastPanel values={submittedValues} />
+        {hasResult ? <LoanForecastPanel values={submittedValues} /> : null}
 
-        {submittedValues.includeInflation ? (
+        {hasResult && submittedValues.includeInflation ? (
           <InflationForecastPanel surface="loan" values={submittedValues} />
         ) : null}
 
-        <Card>
+        {hasResult ? (
+          <Card>
           <CardHeader>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col gap-1.5">
@@ -391,6 +442,7 @@ export function LoanCalculator() {
             </CardContent>
           ) : null}
         </Card>
+        ) : null}
       </div>
     </div>
   );
