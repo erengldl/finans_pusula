@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope, Sora } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -34,7 +35,10 @@ export default function RootLayout({
       lang="tr"
       className={`${manrope.variable} ${sora.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col font-sans">{children}</body>
+      <body className="flex min-h-full flex-col font-sans">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
