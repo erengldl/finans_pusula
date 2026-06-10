@@ -30,6 +30,7 @@ import {
   calculateRegularGrowth,
   calculateTargetGrowth,
   type ContributionIncreaseType,
+  type ContributionTiming,
   type GrowthKind,
   type RegularGrowthResult,
   type TargetGrowthResult,
@@ -136,6 +137,14 @@ const contributionIncreaseOptions = [
   },
 ];
 
+const contributionTimingOptions: Array<{
+  value: ContributionTiming;
+  label: string;
+}> = [
+  { value: "end", label: "Ay sonunda eklensin" },
+  { value: "beginning", label: "Ay başında eklensin" },
+];
+
 function getDefaultStartMonth() {
   return new Date().getMonth() + 1;
 }
@@ -171,6 +180,20 @@ function getContributionModelLabel(
   return "Aylık tutar sabit";
 }
 
+function getContributionTimingLabel(timing: ContributionTiming) {
+  return timing === "beginning" ? "Ay başında" : "Ay sonunda";
+}
+
+function getScenarioVisibilityLabel(selectedInstrumentId?: string) {
+  return selectedInstrumentId ? "Örnek hesaplama" : "Senin hesaplaman";
+}
+
+function getScenarioVisibilityNote(selectedInstrumentId?: string) {
+  return selectedInstrumentId
+    ? "Bir referans enstrüman seçildiği için sonuç örnek veriyle gösteriliyor."
+    : "Sonuç doğrudan senin girdiğin oran ve tutarlardan üretiliyor.";
+}
+
 function getTargetDurationText(result: TargetGrowthResult) {
   return formatDurationFromMonths(result.monthsToTarget);
 }
@@ -182,6 +205,7 @@ const regularDefaults: RegularGrowthFormValues = {
   years: 5,
   startMonth: getDefaultStartMonth(),
   startYear: getDefaultStartYear(),
+  contributionTiming: "end",
   contributionIncreaseType: "none",
   contributionIncreaseRate: 0,
   includeInflation: false,
@@ -195,6 +219,7 @@ const targetDefaults: TargetGrowthFormValues = {
   annualRate: 30,
   startMonth: getDefaultStartMonth(),
   startYear: getDefaultStartYear(),
+  contributionTiming: "end",
   contributionIncreaseType: "none",
   contributionIncreaseRate: 0,
   includeInflation: false,
@@ -209,6 +234,7 @@ function toRegularResult(kind: GrowthKind, values: RegularGrowthFormValues) {
     years: values.years,
     startMonth: values.startMonth,
     startYear: values.startYear,
+    contributionTiming: values.contributionTiming,
     contributionIncreaseType: values.contributionIncreaseType,
     contributionIncreaseRate: values.contributionIncreaseRate,
     inflation: {
@@ -226,6 +252,7 @@ function toTargetResult(kind: GrowthKind, values: TargetGrowthFormValues) {
     annualRate: values.annualRate,
     startMonth: values.startMonth,
     startYear: values.startYear,
+    contributionTiming: values.contributionTiming,
     contributionIncreaseType: values.contributionIncreaseType,
     contributionIncreaseRate: values.contributionIncreaseRate,
     inflation: {
@@ -320,14 +347,16 @@ function RegularGrowthPanel({
     annualRate: submittedValues.annualRate,
     inflationEnabled: submittedValues.includeInflation,
     inflationRate: submittedValues.inflationRate,
+    contributionTimingLabel: getContributionTimingLabel(submittedValues.contributionTiming),
     contributionModel: getContributionModelLabel(
       submittedContributionIncreaseType,
       submittedContributionIncreaseRate,
     ),
     durationLabel: formatDurationFromMonths(result.monthly.length),
-    scenarioLabel: submittedInstrument
+    scenarioLabel: getScenarioVisibilityLabel(submittedInstrumentId),
+    scenarioDetail: submittedInstrument
       ? `${submittedInstrument.label} referans varsayımı`
-      : "Kullanıcının baz senaryosu",
+      : "Özel girişlerle oluşturulmuş hesaplama.",
     referenceSource: referenceSnapshotMeta.snapshotLabel,
     generatedAtLabel: formatDateTimeLabel(referenceSnapshotMeta.generatedAt),
     disclaimer:
@@ -341,7 +370,7 @@ function RegularGrowthPanel({
           <CardTitle>{config.formTitle}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+          <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
             <input type="hidden" {...register("startYear", { valueAsNumber: true })} />
             <FieldGroup>
               <CurrencyInput
@@ -363,6 +392,13 @@ function RegularGrowthPanel({
                 options={monthOptions}
                 registration={register("startMonth", { valueAsNumber: true })}
                 error={errors.startMonth?.message}
+              />
+              <SelectField
+                id="contributionTiming"
+                label="Aylık katkı ne zaman eklensin?"
+                options={contributionTimingOptions}
+                registration={register("contributionTiming")}
+                error={errors.contributionTiming?.message}
               />
               <SelectField
                 id="contributionIncreaseType"
@@ -390,7 +426,14 @@ function RegularGrowthPanel({
                 id="annualRate"
                 label={config.rateLabel}
                 error={errors.annualRate?.message}
-                {...register("annualRate", { valueAsNumber: true })}
+                {...register("annualRate", {
+                  valueAsNumber: true,
+                  onChange: () => {
+                    if (kind === "investment") {
+                      setSelectedInstrumentId(undefined);
+                    }
+                  },
+                })}
               />
               <DurationInput
                 id="years"
@@ -461,6 +504,32 @@ function RegularGrowthPanel({
       </Card>
 
       <div className="flex min-w-0 flex-col gap-6">
+        <Card className="border-primary/20 bg-secondary/35">
+          <CardHeader>
+            <CardTitle>{getScenarioVisibilityLabel(submittedInstrumentId)}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm leading-6 text-muted-foreground">
+            <p>{getScenarioVisibilityNote(submittedInstrumentId)}</p>
+            <p>Katkı zamanı: {getContributionTimingLabel(submittedValues.contributionTiming)}</p>
+            <p>
+              Aylık katkı modeli:{" "}
+              {getContributionModelLabel(
+                submittedContributionIncreaseType,
+                submittedContributionIncreaseRate,
+              )}
+            </p>
+            <p>
+              Enflasyon varsayımı:{" "}
+              {submittedValues.includeInflation
+                ? formatPercent(submittedValues.inflationRate ?? 0)
+                : "Kapalı"}
+            </p>
+            {submittedInstrument ? (
+              <p>Referans enstrüman: {submittedInstrument.label}</p>
+            ) : null}
+          </CardContent>
+        </Card>
+
         <section className="grid min-w-0 gap-4 sm:grid-cols-2">
           <ResultCard
             label={config.totalValueLabel}
@@ -601,14 +670,16 @@ function TargetGrowthPanel({
     annualRate: submittedValues.annualRate,
     inflationEnabled: submittedValues.includeInflation,
     inflationRate: submittedValues.inflationRate,
+    contributionTimingLabel: getContributionTimingLabel(submittedValues.contributionTiming),
     contributionModel: getContributionModelLabel(
       submittedContributionIncreaseType,
       submittedContributionIncreaseRate,
     ),
     durationLabel: getTargetDurationText(result),
-    scenarioLabel: submittedInstrument
+    scenarioLabel: getScenarioVisibilityLabel(submittedInstrumentId),
+    scenarioDetail: submittedInstrument
       ? `${submittedInstrument.label} referans varsayımı`
-      : "Kullanıcının baz senaryosu",
+      : "Özel girişlerle oluşturulmuş hedef planı.",
     referenceSource: referenceSnapshotMeta.snapshotLabel,
     generatedAtLabel: formatDateTimeLabel(referenceSnapshotMeta.generatedAt),
     disclaimer:
@@ -622,7 +693,7 @@ function TargetGrowthPanel({
           <CardTitle>Hedef planı</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+          <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
             <input type="hidden" {...register("startYear", { valueAsNumber: true })} />
             <FieldGroup>
               <CurrencyInput
@@ -653,6 +724,13 @@ function TargetGrowthPanel({
                 error={errors.startMonth?.message}
               />
               <SelectField
+                id="contributionTiming"
+                label="Aylık katkı ne zaman eklensin?"
+                options={contributionTimingOptions}
+                registration={register("contributionTiming")}
+                error={errors.contributionTiming?.message}
+              />
+              <SelectField
                 id="contributionIncreaseType"
                 label="Aylık tutar zamanla artsın mı?"
                 options={contributionIncreaseOptions}
@@ -678,7 +756,14 @@ function TargetGrowthPanel({
                 id="annualRate"
                 label={configs[kind].targetRateLabel}
                 error={errors.annualRate?.message}
-                {...register("annualRate", { valueAsNumber: true })}
+                {...register("annualRate", {
+                  valueAsNumber: true,
+                  onChange: () => {
+                    if (kind === "investment") {
+                      setSelectedInstrumentId(undefined);
+                    }
+                  },
+                })}
               />
               <Controller
                 control={control}
@@ -742,6 +827,32 @@ function TargetGrowthPanel({
       </Card>
 
       <div className="flex min-w-0 flex-col gap-6">
+        <Card className="border-primary/20 bg-secondary/35">
+          <CardHeader>
+            <CardTitle>{getScenarioVisibilityLabel(submittedInstrumentId)}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm leading-6 text-muted-foreground">
+            <p>{getScenarioVisibilityNote(submittedInstrumentId)}</p>
+            <p>Katkı zamanı: {getContributionTimingLabel(submittedValues.contributionTiming)}</p>
+            <p>
+              Aylık katkı modeli:{" "}
+              {getContributionModelLabel(
+                submittedContributionIncreaseType,
+                submittedContributionIncreaseRate,
+              )}
+            </p>
+            <p>
+              Enflasyon varsayımı:{" "}
+              {submittedValues.includeInflation
+                ? formatPercent(submittedValues.inflationRate ?? 0)
+                : "Kapalı"}
+            </p>
+            {submittedInstrument ? (
+              <p>Referans enstrüman: {submittedInstrument.label}</p>
+            ) : null}
+          </CardContent>
+        </Card>
+
         <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <ResultCard
             label="Hedefe kalan süre"
@@ -771,8 +882,8 @@ function TargetGrowthPanel({
         </section>
         {!result.reached ? (
           <p className="rounded-lg border border-negative/20 bg-card p-4 text-sm leading-6 text-negative">
-            Bu plan mevcut varsayımlarla hedefe yetmiyor. Aylık tutarı, artış oranını
-            veya getiri varsayımını yeniden denemeyi düşün.
+            {result.failureMessage ??
+              "Bu plan mevcut varsayımlarla hedefe yetmiyor. Aylık tutarı, artış oranını veya getiri varsayımını yeniden dene."}
           </p>
         ) : null}
         <Card>
@@ -820,15 +931,29 @@ function TargetGrowthPanel({
           />
         ) : null}
 
-        <MonthlyRoadmap
-          rows={result.timeline}
-          summary={targetChecklistSummary}
-          isOpen={showDetails}
-          onToggle={() => setShowDetails((current) => !current)}
-          includeInflation={submittedValues.includeInflation}
-          pdfFileName={`${kind}-hedef-aylik-birikim-checklisti.pdf`}
-          isTargetMode
-        />
+        {result.alreadyReached ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Aylık takip planı gerekmiyor</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Bu hedef mevcut birikiminle zaten karşılanıyor. Bu nedenle ek aylık
+                takip planı ve PDF oluşturmadık.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <MonthlyRoadmap
+            rows={result.timeline}
+            summary={targetChecklistSummary}
+            isOpen={showDetails}
+            onToggle={() => setShowDetails((current) => !current)}
+            includeInflation={submittedValues.includeInflation}
+            pdfFileName={`${kind}-hedef-aylik-birikim-checklisti.pdf`}
+            isTargetMode
+          />
+        )}
       </div>
     </div>
   );

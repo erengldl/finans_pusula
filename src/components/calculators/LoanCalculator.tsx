@@ -48,6 +48,16 @@ const loanDefaults: LoanFormValues = {
   inflationRate: getDefaultInflationRate(),
 };
 
+function getCalculationVisibilityLabel(isExample: boolean) {
+  return isExample ? "Örnek hesaplama" : "Senin hesaplaman";
+}
+
+function getCalculationVisibilityNote(isExample: boolean) {
+  return isExample
+    ? "Referans aylık oran ve tipik masraf kullanılıyor."
+    : "Aylık faiz veya masraf manuel olarak değiştirilmiş.";
+}
+
 function toLoanResult(values: LoanFormValues) {
   return calculateLoan({
     loanType: values.loanType,
@@ -86,6 +96,29 @@ export function LoanCalculator() {
     loanMarket?.referenceRates.find((item) => item.loanType === selectedLoanType) ??
     getLoanReferenceRate(selectedLoanType);
   const formInflationRate = Number(watchedInflationRate ?? 0);
+  const isExampleCalculation =
+    submittedValues.monthlyRate === referenceRate.averageMonthlyRate &&
+    submittedValues.extraFees === referenceRate.typicalFees;
+
+  function getReferenceRateForType(loanTypeToApply: LoanType) {
+    return (
+      loanMarket?.referenceRates.find((item) => item.loanType === loanTypeToApply) ??
+      getLoanReferenceRate(loanTypeToApply)
+    );
+  }
+
+  function applyReferenceValues(loanTypeToApply: LoanType) {
+    const nextReferenceRate = getReferenceRateForType(loanTypeToApply);
+
+    setValue("monthlyRate", nextReferenceRate.averageMonthlyRate, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue("extraFees", nextReferenceRate.typicalFees, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -139,12 +172,18 @@ export function LoanCalculator() {
           <CardTitle>Kredi planı</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <Tabs
               value={loanType}
-              onValueChange={(value) =>
-                setValue("loanType", value as LoanType, { shouldValidate: true })
-              }
+              onValueChange={(value) => {
+                const nextLoanType = value as LoanType;
+
+                setValue("loanType", nextLoanType, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+                applyReferenceValues(nextLoanType);
+              }}
             >
               <TabsList aria-label="Kredi tipi">
                 {(Object.keys(loanTypeLabels) as LoanType[]).map((type) => (
@@ -169,16 +208,7 @@ export function LoanCalculator() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setValue("monthlyRate", referenceRate.averageMonthlyRate, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                    setValue("extraFees", referenceRate.typicalFees, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                  }}
+                  onClick={() => applyReferenceValues(selectedLoanType)}
                 >
                   Güncel oranı kullan
                 </Button>
@@ -266,24 +296,61 @@ export function LoanCalculator() {
       </Card>
 
       <div className="flex min-w-0 flex-col gap-6">
+        <Card className="border-primary/20 bg-secondary/35">
+          <CardHeader>
+            <CardTitle>{getCalculationVisibilityLabel(isExampleCalculation)}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm leading-6 text-muted-foreground">
+            <p>{getCalculationVisibilityNote(isExampleCalculation)}</p>
+            <p>
+              Referans oran: {formatPercent(referenceRate.averageMonthlyRate)} / masraf:{" "}
+              {formatCurrency(referenceRate.typicalFees)}
+            </p>
+            <p>
+              Enflasyon:{" "}
+              {submittedValues.includeInflation
+                ? `${formatPercent(result.usedAnnualInflationRate ?? 0)} yıllık, ${formatPercent(
+                    result.usedMonthlyInflationRate ?? 0,
+                  )} aylık`
+                : "Kapalı"}
+            </p>
+            <p className="text-xs leading-5 text-muted-foreground">
+              {loanMarket?.liveIntegrationStatus ??
+                "Kredi referans verisi kontrol ediliyor. Bağlantı kurulamazsa seed snapshot gösterilir."}
+            </p>
+          </CardContent>
+        </Card>
+
         <section className="grid min-w-0 gap-4 sm:grid-cols-2">
-          <ResultCard label="Aylık ödeme" value={formatCurrency(result.monthlyPayment)} />
-          <ResultCard label="Toplam ödeme" value={formatCurrency(result.totalPayment)} />
+          <ResultCard
+            label="Nominal aylık taksit"
+            value={formatCurrency(result.nominalMonthlyPayment)}
+            helper="Vade boyunca değişmeden hesaplanan taksit."
+          />
+          <ResultCard
+            label="Nominal toplam ödeme"
+            value={formatCurrency(result.nominalTotalPayment)}
+          />
           <ResultCard
             label="Faiz yükü"
             value={formatCurrency(result.totalInterest)}
             tone="negative"
           />
           <ResultCard
-            label="Masraf dahil toplam maliyet"
-            value={formatCurrency(result.totalCost)}
+            label="Nominal toplam maliyet"
+            value={formatCurrency(result.nominalTotalCost)}
           />
-          {submittedValues.includeInflation ? (
-            <ResultCard
-              label="Bugünün parasıyla toplam"
-              value={formatCurrency(result.realTotalCost ?? result.totalCost)}
-            />
-          ) : null}
+          <ResultCard
+            label="Bugünün parasıyla tahmini maliyet"
+            value={formatCurrency(result.presentValueTotalCost ?? result.totalCost)}
+            helper={
+              result.usedAnnualInflationRate === undefined
+                ? "Enflasyon kapalı."
+                : `Yıllık ${formatPercent(result.usedAnnualInflationRate)} / aylık ${formatPercent(
+                    result.usedMonthlyInflationRate ?? 0,
+                  )}`
+            }
+          />
         </section>
 
         <Card>

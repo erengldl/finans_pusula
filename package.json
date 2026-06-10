@@ -1,6 +1,6 @@
 {
-  "name": "finans",
-  "version": "0.1.0",
+  "name": "finans-pusula",
+  "version": "1.0.0",
   "private": true,
   "engines": {
     "node": ">=20.9.0"
@@ -9,7 +9,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -19,7 +22,8 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@react-pdf/renderer": "^4.5.1",
-    "@vercel/analytics": "^2.0.1",
+    "@upstash/redis": "^1.35.7",
+    "@vercel/analytics": "^1.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.11.0",
@@ -32,6 +36,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -39,7 +44,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   },
   "overrides": {
     "postcss": "^8.5.10"

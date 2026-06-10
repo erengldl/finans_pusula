@@ -1,14 +1,9 @@
-import {
-  Banknote,
-  ChartNoAxesCombined,
-  Database,
-  Landmark,
-  Percent,
-} from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CalculatorCard } from "@/components/CalculatorCard";
 import { BrandMark } from "@/components/brand/BrandMark";
+import { ReferenceOverviewSection } from "@/components/ReferenceOverviewSection";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 
@@ -17,25 +12,25 @@ const calculators = [
     href: "/calculators/compound-interest",
     title: "Faizli Birikim",
     description: "Düzenli birikimin zaman içinde nasıl büyüdüğünü gör.",
-    icon: Percent,
+    iconKey: "percent" as const,
   },
   {
     href: "/calculators/simple-interest",
     title: "Basit Faiz Hesaplama",
     description: "Ana para üzerinden sade ve hızlı faiz hesabı yap.",
-    icon: Banknote,
+    iconKey: "banknote" as const,
   },
   {
     href: "/calculators/investment-return",
     title: "Yatırım Planı",
     description: "Aylık yatırımın farklı getiri varsayımlarında nereye gittiğini karşılaştır.",
-    icon: ChartNoAxesCombined,
+    iconKey: "chart" as const,
   },
   {
     href: "/calculators/loan",
     title: "Kredi Planı",
     description: "Aylık ödeme, toplam maliyet ve faiz yükünü tek ekranda gör.",
-    icon: Landmark,
+    iconKey: "landmark" as const,
   },
 ];
 
@@ -54,20 +49,28 @@ const quickSteps = [
   },
 ];
 
-const dataCards = [
-  {
-    title: "Örnek kredi oranları",
-    description: "Karşılaştırma için referans aylık oranlar kullanılır.",
+export const metadata: Metadata = {
+  title: "Finans Pusula",
+  description:
+    "Kredi, birikim, yatırım ve enflasyon etkisini sade ekranlarla hesapla; kaynakları ve metodolojiyi açıkça gör.",
+  alternates: {
+    canonical: "/",
   },
-  {
-    title: "Yatırım senaryoları",
-    description: "Farklı getiri bantlarıyla planın dayanıklılığını gör.",
+  openGraph: {
+    title: "Finans Pusula",
+    description:
+      "Kredi, birikim, yatırım ve enflasyon etkisini sade ekranlarla hesapla.",
+    url: "/",
+    images: ["/opengraph-image"],
   },
-  {
-    title: "Enflasyon varsayımları",
-    description: "Bugünün parasıyla değeri sade biçimde karşılaştır.",
+  twitter: {
+    card: "summary_large_image",
+    title: "Finans Pusula",
+    description:
+      "Kredi, birikim, yatırım ve enflasyon etkisini sade ekranlarla hesapla.",
+    images: ["/opengraph-image"],
   },
-];
+};
 
 export default function Home() {
   return (
@@ -127,28 +130,7 @@ export default function Home() {
             ))}
           </div>
         </section>
-
-        <section className="rounded-[20px] border border-border bg-card p-5 sm:p-6">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-2xl bg-muted text-foreground">
-              <Database className="size-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Kullanılan örnek veriler</h2>
-              <p className="text-sm leading-6 text-muted-foreground">
-                Sonuçları yorumlamayı kolaylaştıran sade referans katmanı.
-              </p>
-            </div>
-          </div>
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            {dataCards.map((item) => (
-              <div key={item.title} className="rounded-2xl border border-border bg-muted p-4">
-                <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.description}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+        <ReferenceOverviewSection />
       </section>
     </main>
   );

@@ -1,80 +1,80 @@
-# Finansal Hesaplama Araçları
+# Finans Pusula
 
-Modern, sade ve mobil uyumlu bir finansal hesaplama sitesi. V1 kapsamı; kullanıcının siteye girip 30 saniye içinde bir finansal hesaplama yapmasını, sonucu büyük kartlar ve sade grafiklerle anlamasını hedefler.
+Türkçe, mobil uyumlu finans hesaplama uygulaması. Kredi, birikim, yatırım ve enflasyon etkisini sade ekranlarla gösterir; kaynak ve metodolojiyi açık tutar.
 
-## Proje Amacı
+## Canlı Demo
 
-Bu proje karmaşık bir finans uygulaması değildir. Üyelik, portföy takibi veya AI danışmanlığı içermez. Odağı hızlı, anlaşılır ve güven veren hesaplama deneyimidir. Kredi tarafında opsiyonel TCMB EVDS referans akışı ve banka partner feed katmanı desteklenir.
+- Production deployment Vercel üzerinde çalışır.
+- Canonical/base URL `NEXT_PUBLIC_SITE_URL` ile belirlenir.
+- Kredi tarafında Upstash Redis bağlı değilse uygulama read-only seed snapshot ile açılır ve bunu UI içinde açıkça belirtir.
 
-## Modüller
+## Ekran Görüntüleri
 
-- Bileşik Faiz Hesaplama
-- Basit Faiz Hesaplama
-- Yatırım Getirisi Hesaplama
-- Kredi Hesaplama
+Önerilen ekranlar:
 
-Tüm yatırım, faiz ve birikim modüllerinde iki mod vardır:
+- Ana sayfa
+- Kredi hesaplayıcı
+- Birikim / yatırım hesaplayıcısı
+- Aylık yol haritası ve PDF çıktı
 
-- Düzenli Birikim / Düzenli Yatırım
-- Birikim Hedefi: hedef tutarı bugünün alım gücüyle kabul eder ve aylık birikim temposuna göre hedefe ulaşma süresini hesaplar.
-
-Kredi modülü şu tipleri destekler:
-
-- İhtiyaç Kredisi
-- Taşıt Kredisi
-- Konut Kredisi
+İstersen bu görselleri `docs/screenshots/` altında tutabilirsin.
 
 ## Özellikler
 
-- Türkçe arayüz
-- TL ve yüzde odaklı input yapısı
-- Opsiyonel enflasyon etkisi
-- Enflasyon aktifken hedef tutarın gelecekteki nominal karşılığını büyütme
-- Takvim ayına bağlı aylık birikim artışı:
-  - Artış yok
-  - Yılda 1 kez Şubat ayında artış
-  - Yılda 2 kez Şubat ve Temmuz aylarında artış
-- Sonuç kartları
-- Recharts ile sade grafikler
-- Ay bazlı "Aylık Birikim Yol Haritası"
-- Yazdırılabilir PDF birikim checklist'i
-- Kredi ödeme planı tablosu
-- TCMB EVDS ile opsiyonel referans kredi oranı yenileme
-- Banka bazlı partner feed adapter katmanı
-- Otomatik kredi snapshot yenileme ve kalıcı JSON depo
-- Mobile-first responsive tasarım
-- TypeScript tabanlı finans hesaplama motoru
-- Zod validation ve React Hook Form
-- @react-pdf/renderer ile gerçek PDF çıktısı
+- Bileşik faiz, basit faiz, yatırım getirisi ve kredi hesaplayıcıları
+- Düzenli plan ve hedefe ulaşma modu
+- Katkı zamanlaması seçimi
+- Şubat / Temmuz artış modeli
+- Enflasyon etkisini bugünün parasıyla gösterme
+- Kredi için nominal ödeme, nominal toplam maliyet ve bugünkü değer karşılaştırması
+- Ay bazlı yol haritası ve PDF checklist
+- TCMB EVDS ve banka partner feed entegrasyonları
+- Upstash Redis tabanlı production storage
+- Vercel Analytics ile gizlilik dostu event tracking
+- SEO, canonical, Open Graph, Twitter card, sitemap, robots ve manifest desteği
 
-## Teknik Yapı
+## Mimari
 
-- Next.js App Router
-- TypeScript
-- Tailwind CSS
-- shadcn/ui tarzı lokal component yapısı
-- Recharts
-- React Hook Form
-- Zod
+- `src/lib/finance.ts`: finans motoru ve limitler
+- `src/lib/validation.ts`: Zod şemaları
+- `src/lib/server/loan-market-store.ts`: snapshot akışı ve refresh mantığı
+- `src/lib/server/loan-market-storage.ts`: memory / Redis / read-only seed adapter seçimi
+- `src/app/`: App Router sayfaları, metadata ve özel route dosyaları
+- `src/components/`: hesaplayıcılar, paneller ve ortak UI bileşenleri
 
-Önemli dosyalar:
+## Ortam Değişkenleri
 
-- `src/lib/finance.ts`: Finansal hesaplama fonksiyonları
-- `src/lib/validation.ts`: Form validation şemaları
-- `src/components/calculators/GrowthCalculator.tsx`: Faiz/yatırım hesaplayıcıları
-- `src/components/calculators/LoanCalculator.tsx`: Kredi hesaplayıcı
-- `src/components/MonthlyRoadmap.tsx`: Ay bazlı birikim yol haritası
-- `src/components/SavingsChecklistPdf.tsx`: A4 yazdırılabilir PDF checklist üretimi
-- `src/components/`: Ortak layout, input, chart ve tablo componentleri
+`.env.example` içindeki temel alanlar:
 
-## Nasıl Çalıştırılır?
+- `NEXT_PUBLIC_SITE_URL`
+- `TCMB_EVDS_API_KEY`
+- `TCMB_EVDS_SERIES_ENDPOINT_TEMPLATE`
+- `TCMB_EVDS_SERIES_PERSONAL`
+- `TCMB_EVDS_SERIES_PERSONAL_FIELD`
+- `TCMB_EVDS_SERIES_VEHICLE`
+- `TCMB_EVDS_SERIES_VEHICLE_FIELD`
+- `TCMB_EVDS_SERIES_MORTGAGE`
+- `TCMB_EVDS_SERIES_MORTGAGE_FIELD`
+- `LOAN_MARKET_AUTO_REFRESH`
+- `LOAN_MARKET_REFRESH_HOURS`
+- `LOAN_MARKET_REFRESH_TOKEN`
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+- `LOAN_BANK_FEED_<BANKA>_URL`
+- `LOAN_BANK_FEED_<BANKA>_TOKEN`
 
-Minimum gereksinim:
+Production ortamında `UPSTASH_REDIS_REST_URL` ve `UPSTASH_REDIS_REST_TOKEN` yoksa uygulama kalıcı storage yerine read-only seed snapshot kullanır.
+
+## Geliştirme
+
+Gereksinim:
 
 - Node.js 20.9+
 
+Kurulum ve geliştirme:
+
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -84,80 +84,34 @@ Varsayılan adres:
 http://localhost:3000
 ```
 
-Port doluysa Next.js farklı bir port önerebilir.
-
-## Canlı Kredi Verisi
-
-Kredi ekranı seed snapshot ile açılır. Aşağıdaki opsiyonel env alanları tanımlandığında uygulama kredi tarafında otomatik güncelleme yapar:
-
-- `TCMB_EVDS_API_KEY`
-- `TCMB_EVDS_SERIES_PERSONAL`
-- `TCMB_EVDS_SERIES_VEHICLE`
-- `TCMB_EVDS_SERIES_MORTGAGE`
-- `LOAN_MARKET_AUTO_REFRESH`
-- `LOAN_MARKET_REFRESH_HOURS`
-- `LOAN_BANK_FEED_<BANKA>_URL`
-
-Örnek tüm değişkenler için `.env.example` dosyasına bak.
-
-Sunucu route'ları:
-
-- `GET /api/reference/loan-market`: güncel kredi snapshot'ını döner, gerekiyorsa otomatik yeniler.
-- `POST /api/reference/loan-market/refresh`: `x-finans-pusula-refresh-token` başlığı ile zorunlu yenileme yapar.
-
-## GitHub ve Deploy
-
-GitHub'a ilk yayın için tipik akış:
-
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-```
-
-Sonrasında ya GitHub üzerinde boş repo açıp `origin` remote'u ekleyebilir, ya da `gh` CLI kullanıyorsan `gh repo create` ile push edebilirsin.
-
-Deploy notları:
-
-- Bu proje static export için uygun değildir; App Router API route'ları ve `nodejs` runtime kullandığı için Vercel veya başka bir Node.js host üzerinde çalıştırılmalıdır.
-- Canlı kredi yenilemesi için `.env.example` içindeki opsiyonel değişkenleri deploy platformunda tanımlaman gerekir.
-- Read-only dosya sistemi kullanan serverless ortamlarda yenilenen kredi snapshot'ı kalıcı diske yazılamaz. Uygulama bu durumda yanıtı üretmeye devam eder ve veriyi aktif instance belleğinde tutar.
-- Kalıcı ve paylaşılan kredi snapshot saklama ihtiyacı varsa bu `data/` dosyası yerine veritabanı, blob storage veya KV store kullanılmalıdır.
-
 ## Doğrulama
+
+Çalıştırılacak komutlar:
 
 ```bash
 npm run lint
+npm run typecheck
+npm run test
 npm run build
+npm run test:e2e
 ```
 
-Manuel test senaryoları:
+Test kapsamı:
 
-- Ana sayfadan 4 hesaplama modülüne gidilebilmeli.
-- Bileşik faiz modülünde düzenli birikim hesaplanabilmeli.
-- Birikim hedefi modunda kullanıcı aylık birikim girip hedefe kaç ay/yılda ulaşacağını görebilmeli.
-- Enflasyon aktifken hedef tutar bugünün parasıyla kabul edilmeli ve gelecekteki nominal hedef büyümeli.
-- Aylık birikim artışı başlangıç ayına göre takvim bazlı çalışmalı; ilk ayda otomatik zam uygulanmamalı.
-- Aylık Birikim Yol Haritası açıldığında ay ay plan satırları görülebilmeli.
-- PDF Checklist İndir butonu gerçek PDF dosyası indirmeli.
-- Enflasyon checkbox'ı açıldığında bugünün parasıyla değer gösterilmeli.
-- Kredi modülünde kredi tipi değiştirilebilmeli.
-- Ödeme planı açılıp ay bazında kalan borç görülebilmeli.
-- Mobil ekranda sayfa seviyesinde yatay taşma olmamalı.
+- Vitest: efektif yıllık oran dönüşümü, katkı timing'i, Şubat / Temmuz artışları, yıl geçişi, limitler, hedefe ulaşamama nedenleri, kredi taksit yuvarlama ve bugünkü değer
+- Playwright: ana sayfa, dört route, kredi tipi değişimi, validation hataları, ödeme planı, PDF indirme, doğrudan route açılışı, mobil yatay taşma ve API fallback
 
-## Varsayımlar ve Sınırlar
+## Deployment
 
-- Hesaplamalar tahminidir ve finansal tavsiye değildir.
-- Enflasyon oranı kullanıcı tarafından girilir.
-- Yatırım getirisi, kullanıcının girdiği yıllık tahmini kâr oranına dayanır.
-- Kredi faiz oranı aylık girilir.
-- EVDS serileri ve banka feed'leri tanımlı değilse kredi tarafı seed snapshot ile çalışır.
-- Gerçek banka teklifleri, masraf detayları ve kampanya koşulları son aşamada yine banka kanalında netleşir.
+- Uygulama Vercel üzerinde Node.js runtime ile deploy edilir.
+- `@upstash/redis` Marketplace entegrasyonu production storage için tercih edilir.
+- `@vercel/analytics` client tarafında hafif event tracking için kullanılır.
+- `manifest.webmanifest`, `robots.txt`, `sitemap.xml` ve Open Graph image App Router özel dosyaları üzerinden üretilir.
 
-## Gelecek Geliştirmeler
+## Sınırlamalar
 
-- Banka teklifleri için entegrasyon katmanı
-- Tahmini enflasyon önerisi
-- Canlı piyasa verisiyle opsiyonel senaryolar
-- Daha detaylı SEO içerikleri
-- Hesaplama sonuçlarını paylaşılabilir URL query state ile saklama
+- Bu uygulama finansal tavsiye vermez.
+- Kredi oranları, masraflar ve banka teklifleri yalnızca karşılaştırma amaçlıdır.
+- Upstash Redis bağlantısı yoksa production ortamında kalıcı snapshot saklanmaz; uygulama seed snapshot ile çalışır.
+- Banka partner feed'leri tanımlı değilse ilgili kartlar link-out snapshot olarak gösterilir.
+- Enflasyon ve getiri varsayımları kullanıcı girdisine veya referans veri setine dayanır.

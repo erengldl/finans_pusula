@@ -1,8 +1,5 @@
 import "server-only";
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-
 import { z } from "zod";
 
 import type { LoanType } from "@/lib/finance";
@@ -12,6 +9,7 @@ import {
   type LoanMarketSnapshot,
   type LoanReferenceRate,
 } from "@/lib/loan-market-data";
+import { getLoanMarketStorage } from "@/lib/server/loan-market-storage";
 
 const loanTypeSchema = z.enum(["personal", "vehicle", "mortgage"]);
 
@@ -100,14 +98,10 @@ type EvdsSeriesConfig = {
   code?: string;
 };
 
-const snapshotDirectory = path.join(process.cwd(), "data");
-const snapshotFilePath = path.join(snapshotDirectory, "loan-market-snapshot.json");
 const evdsTemplateDefault = "https://evds2.tcmb.gov.tr/service/evds/series={series}";
 const refreshTokenHeader = "x-finans-pusula-refresh-token";
-const readOnlyFilesystemErrorCodes = new Set(["EACCES", "EPERM", "EROFS"]);
 
 let refreshInFlight: Promise<LoanMarketRefreshResult> | null = null;
-let inMemorySnapshot: LoanMarketSnapshot | null = null;
 
 function getLoanRateLabel(loanType: LoanType) {
   if (loanType === "mortgage") {
@@ -315,53 +309,21 @@ function buildEvdsRequestUrl(seriesCode: string) {
 }
 
 async function readStoredLoanMarketSnapshot() {
-  if (inMemorySnapshot) {
-    return inMemorySnapshot;
-  }
+  const storage = getLoanMarketStorage();
+  const result = await storage.getLatest();
+  const parsed = loanMarketSnapshotSchema.safeParse(result.snapshot);
 
-  try {
-    const contents = await readFile(snapshotFilePath, "utf8");
-    const parsed = loanMarketSnapshotSchema.safeParse(JSON.parse(contents));
-
-    if (parsed.success) {
-      return parsed.data;
-    }
-  } catch {
-    // Fall back to the seed snapshot when the persisted file is unavailable.
-  }
-
-  return getSeedLoanMarketSnapshot();
-}
-
-function isReadOnlyFilesystemError(error: unknown) {
-  if (!error || typeof error !== "object" || !("code" in error)) {
-    return false;
-  }
-
-  return (
-    typeof error.code === "string" && readOnlyFilesystemErrorCodes.has(error.code)
-  );
-}
-
-async function writeStoredLoanMarketSnapshot(snapshot: LoanMarketSnapshot) {
-  try {
-    await mkdir(snapshotDirectory, { recursive: true });
-    await writeFile(snapshotFilePath, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+  if (parsed.success) {
     return {
-      persisted: true,
-      warning: null,
+      snapshot: parsed.data,
+      warning: result.warning ?? null,
     };
-  } catch (error) {
-    if (isReadOnlyFilesystemError(error)) {
-      return {
-        persisted: false,
-        warning:
-          "Snapshot kalici dosya sistemine yazilamadi; bu deploy ortaminda yenilenen veri sadece aktif sunucu instance belleginde tutuluyor.",
-      };
-    }
-
-    throw error;
   }
+
+  return {
+    snapshot: getSeedLoanMarketSnapshot(),
+    warning: result.warning ?? "Kaydedilmiş kredi snapshot'ı okunamadı; seed snapshot kullanıldı.",
+  };
 }
 
 function isSnapshotStale(snapshot: LoanMarketSnapshot) {
@@ -599,22 +561,21 @@ async function performLoanMarketRefresh() {
     ],
   };
 
-  const persistence = await writeStoredLoanMarketSnapshot(baseSnapshot);
+  const storage = getLoanMarketStorage();
+  const persistence = await storage.save(baseSnapshot);
   const snapshot =
-    persistence.warning === null
+    persistence.warning === undefined
       ? baseSnapshot
       : {
           ...baseSnapshot,
           caveats: [...baseSnapshot.caveats, persistence.warning],
         };
 
-  inMemorySnapshot = snapshot;
-
   return {
     snapshot,
     updatedSources,
     warnings:
-      persistence.warning === null ? warnings : [...warnings, persistence.warning],
+      persistence.warning === undefined ? warnings : [...warnings, persistence.warning],
   };
 }
 
@@ -639,21 +600,42 @@ export async function refreshLoanMarketSnapshot() {
 }
 
 export async function getLoanMarketSnapshot(options: LoanMarketSnapshotOptions = {}) {
-  const storedSnapshot = await readStoredLoanMarketSnapshot();
+  const storage = getLoanMarketStorage();
+  const stored = await readStoredLoanMarketSnapshot();
+  const storedSnapshot = stored.snapshot;
+  const shouldAppendStoredWarning =
+    Boolean(stored.warning) && !storedSnapshot.caveats.includes(stored.warning ?? "");
 
   if (
     options.allowAutoRefresh &&
     isAutoRefreshEnabled() &&
     hasRefreshableSources() &&
+    storage.mode !== "seed_read_only" &&
+    !stored.warning &&
     isSnapshotStale(storedSnapshot)
   ) {
     try {
       const refreshed = await refreshLoanMarketSnapshot();
-      return refreshed.snapshot;
+      return {
+        ...refreshed.snapshot,
+        caveats: shouldAppendStoredWarning
+          ? [...refreshed.snapshot.caveats, stored.warning ?? ""]
+          : refreshed.snapshot.caveats,
+      };
     } catch {
-      return storedSnapshot;
+      return {
+        ...storedSnapshot,
+        caveats: shouldAppendStoredWarning
+          ? [...storedSnapshot.caveats, stored.warning ?? ""]
+          : storedSnapshot.caveats,
+      };
     }
   }
 
-  return storedSnapshot;
+  return {
+    ...storedSnapshot,
+    caveats: shouldAppendStoredWarning
+      ? [...storedSnapshot.caveats, stored.warning ?? ""]
+      : storedSnapshot.caveats,
+  };
 }
