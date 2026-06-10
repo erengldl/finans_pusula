@@ -7,6 +7,23 @@ export const metadata: Metadata = {
   title: "Kredi Planı",
   description:
     "İhtiyaç, taşıt ve konut kredisi için aylık ödemeyi, toplam maliyeti ve banka karşılaştırmasını görebilirsin.",
+  alternates: {
+    canonical: "/calculators/loan",
+  },
+  openGraph: {
+    title: "Kredi Planı | Finans Pusula",
+    description:
+      "İhtiyaç, taşıt ve konut kredisi için aylık ödemeyi, toplam maliyeti ve banka karşılaştırmasını gör.",
+    url: "/calculators/loan",
+    images: ["/opengraph-image"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Kredi Planı | Finans Pusula",
+    description:
+      "İhtiyaç, taşıt ve konut kredisi için aylık ödemeyi, toplam maliyeti ve banka karşılaştırmasını gör.",
+    images: ["/opengraph-image"],
+  },
 };
 
 export default function LoanPage() {

@@ -36,9 +36,11 @@ export type ChecklistSummary = {
   annualRate: number;
   inflationEnabled: boolean;
   inflationRate?: number;
+  contributionTimingLabel?: string;
   contributionModel: string;
   durationLabel: string;
   scenarioLabel?: string;
+  scenarioDetail?: string;
   referenceSource?: string;
   generatedAtLabel?: string;
   disclaimer?: string;
@@ -373,9 +375,15 @@ function Header({
               : "Hesaba katılmadı"
           }
         />
+        {summary.contributionTimingLabel ? (
+          <SummaryItem label="Katkı zamanı" value={summary.contributionTimingLabel} />
+        ) : null}
         <SummaryItem label="Aylık artış modeli" value={summary.contributionModel} />
         {summary.scenarioLabel ? (
           <SummaryItem label="Senaryo" value={summary.scenarioLabel} />
+        ) : null}
+        {summary.scenarioDetail ? (
+          <SummaryItem label="Senaryo notu" value={summary.scenarioDetail} />
         ) : null}
         {summary.referenceSource ? (
           <SummaryItem label="Veri kaynağı" value={summary.referenceSource} />
@@ -502,7 +510,7 @@ export function SavingsChecklistPdfButton({
 }: SavingsChecklistPdfProps) {
   const isClient = useIsClient();
 
-  if (!isClient) {
+  if (!isClient || rows.length === 0) {
     return (
       <button className={cn(buttonVariants({ variant: "default" }))} disabled>
         <Download data-icon="inline-start" />

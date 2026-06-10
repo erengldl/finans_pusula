@@ -3,6 +3,7 @@
 import { ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { track } from "@vercel/analytics";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +65,29 @@ export function LoanBankOffersPanel({ values }: LoanBankOffersPanelProps) {
     return () => controller.abort();
   }, [requestBody]);
 
+  function getOfferModeLabel(
+    mode: LoanBankOffersResponse["offers"][number]["integrationMode"],
+    sourceLabel: string,
+  ) {
+    if (sourceLabel.toLowerCase().includes("seed")) {
+      return "Örnek";
+    }
+
+    return mode === "partner_feed" ? "Canlı partner" : "Snapshot";
+  }
+
+  function getOfferCautionLabel(mode: LoanBankOffersResponse["offers"][number]["integrationMode"], sourceLabel: string) {
+    if (mode === "partner_feed") {
+      return "Banka partner feed'iyle gelen güncel teklif.";
+    }
+
+    if (sourceLabel.toLowerCase().includes("seed")) {
+      return "Örnek veri kullanılıyor; banka kanalında son teklif farklı olabilir.";
+    }
+
+    return "Snapshot teklif; son oran banka kanalında farklılaşabilir.";
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -81,9 +105,14 @@ export function LoanBankOffersPanel({ values }: LoanBankOffersPanelProps) {
             <p className="text-sm leading-6 text-muted-foreground">
               {data.liveIntegrationStatus}
             </p>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Canlı olmayan kartlarda oran ve masraf örnek olabilir; başvuru öncesi banka sayfasını doğrula.
+            </p>
             <div className="grid gap-4 xl:grid-cols-2">
               {data.offers.map((offer) => {
                 const isBestOffer = offer.bankId === data.bestOfferId;
+                const modeLabel = getOfferModeLabel(offer.integrationMode, offer.sourceLabel);
+                const cautionLabel = getOfferCautionLabel(offer.integrationMode, offer.sourceLabel);
 
                 return (
                   <div
@@ -106,13 +135,25 @@ export function LoanBankOffersPanel({ values }: LoanBankOffersPanelProps) {
                         </div>
                         <div className="min-w-0">
                           <p className="font-semibold text-foreground">{offer.bankName}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {isBestOffer
-                              ? "En düşük toplam maliyet"
-                              : offer.integrationMode === "partner_feed"
-                                ? "Canlı partner feed"
-                                : offer.sourceLabel}
-                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-medium">
+                            <span className="rounded-full border border-border bg-muted px-2 py-1 text-muted-foreground">
+                              {modeLabel}
+                            </span>
+                            {isBestOffer ? (
+                              <span className="rounded-full border border-positive/20 bg-positive/10 px-2 py-1 text-positive">
+                                En iyi teklif
+                              </span>
+                            ) : null}
+                            {offer.supportsOnlineApplication ? (
+                              <span className="rounded-full border border-border bg-background px-2 py-1 text-muted-foreground">
+                                Canlı başvuru
+                              </span>
+                            ) : (
+                              <span className="rounded-full border border-border bg-background px-2 py-1 text-muted-foreground">
+                                Yönlendirme
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="text-right">
@@ -160,7 +201,12 @@ export function LoanBankOffersPanel({ values }: LoanBankOffersPanelProps) {
                       </div>
                     </div>
 
-                    <p className="mt-4 text-sm leading-6 text-muted-foreground">{offer.note}</p>
+                    <p className="mt-4 text-sm leading-6 text-muted-foreground">
+                      {offer.note}
+                    </p>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                      {cautionLabel}
+                    </p>
                     <p className="mt-2 text-xs text-muted-foreground">
                       Güncelleme: {formatDateTimeLabel(offer.updatedAt)}
                     </p>
@@ -171,6 +217,12 @@ export function LoanBankOffersPanel({ values }: LoanBankOffersPanelProps) {
                           href={offer.supportsOnlineApplication ? offer.applicationUrl : offer.websiteUrl}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={() =>
+                            track("bank_offer_click", {
+                              bank: offer.shortName,
+                              mode: offer.integrationMode,
+                            })
+                          }
                         >
                           Banka sayfasına git
                           <ArrowUpRight className="size-4" />

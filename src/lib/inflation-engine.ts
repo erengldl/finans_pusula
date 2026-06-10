@@ -1,3 +1,5 @@
+import { annualEffectiveRateToMonthlyRate } from "@/lib/finance";
+
 export type TurkeyInflationObservation = {
   period: string;
   label: string;
@@ -46,10 +48,6 @@ export type TurkeyInflationSnapshot = {
 };
 
 const roundToTwo = (value: number) => Math.round(value * 100) / 100;
-
-function annualToMonthlyEquivalentRate(annualRate: number) {
-  return roundToTwo((Math.pow(1 + annualRate / 100, 1 / 12) - 1) * 100);
-}
 
 function annualizeMonthlyRate(monthlyRate: number) {
   return roundToTwo((Math.pow(1 + monthlyRate / 100, 12) - 1) * 100);
@@ -145,8 +143,10 @@ export function getInflationModelCatalog(): InflationModelDefinition[] {
       shortLabel: "Beklenti",
       family: "expectation",
       annualRate: turkeyInflationSnapshot.expectations.marketParticipants12m,
-      monthlyEquivalentRate: annualToMonthlyEquivalentRate(
-        turkeyInflationSnapshot.expectations.marketParticipants12m,
+      monthlyEquivalentRate: roundToTwo(
+        annualEffectiveRateToMonthlyRate(
+          turkeyInflationSnapshot.expectations.marketParticipants12m,
+        ) * 100,
       ),
       formulaLabel: "12 ay sonrası piyasa katılımcıları beklentisi",
       sourceLabel: "TCMB Piyasa Katılımcıları Anketi",
@@ -162,7 +162,7 @@ export function getInflationModelCatalog(): InflationModelDefinition[] {
       shortLabel: "Resmi TÜFE",
       family: "official_cpi",
       annualRate: officialAnnual,
-      monthlyEquivalentRate: annualToMonthlyEquivalentRate(officialAnnual),
+      monthlyEquivalentRate: roundToTwo(annualEffectiveRateToMonthlyRate(officialAnnual) * 100),
       formulaLabel: "Son gerçekleşen yıllık TÜFE",
       sourceLabel: "TÜİK TÜFE",
       sourceUrl: "https://veriportali.tuik.gov.tr/tr/press/58296",
@@ -176,7 +176,9 @@ export function getInflationModelCatalog(): InflationModelDefinition[] {
       shortLabel: "Trend",
       family: "smoothing",
       annualRate: smoothedTrendAnnual,
-      monthlyEquivalentRate: annualToMonthlyEquivalentRate(smoothedTrendAnnual),
+      monthlyEquivalentRate: roundToTwo(
+        annualEffectiveRateToMonthlyRate(smoothedTrendAnnual) * 100,
+      ),
       formulaLabel: "0,6 x yıllık TÜFE + 0,4 x 3 aylık yıllıklandırılmış trend",
       sourceLabel: "TÜİK TÜFE + trend modeli",
       sourceUrl: "https://veriportali.tuik.gov.tr/tr/press/58296",
@@ -190,8 +192,10 @@ export function getInflationModelCatalog(): InflationModelDefinition[] {
       shortLabel: "Stres",
       family: "hybrid",
       annualRate: turkeyInflationSnapshot.expectations.realSector12m,
-      monthlyEquivalentRate: annualToMonthlyEquivalentRate(
-        turkeyInflationSnapshot.expectations.realSector12m,
+      monthlyEquivalentRate: roundToTwo(
+        annualEffectiveRateToMonthlyRate(
+          turkeyInflationSnapshot.expectations.realSector12m,
+        ) * 100,
       ),
       formulaLabel: "12 ay sonrası reel sektör enflasyon beklentisi",
       sourceLabel: "TCMB Sektörel Enflasyon Beklentileri",

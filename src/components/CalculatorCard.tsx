@@ -1,5 +1,14 @@
+"use client";
+
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
+import {
+  Banknote,
+  ChartNoAxesCombined,
+  Landmark,
+  Percent,
+  type LucideIcon,
+} from "lucide-react";
+import { track } from "@vercel/analytics";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,15 +23,26 @@ type CalculatorCardProps = {
   href: string;
   title: string;
   description?: string;
-  icon: LucideIcon;
+  iconKey: CalculatorIconKey;
+};
+
+type CalculatorIconKey = "percent" | "banknote" | "chart" | "landmark";
+
+const iconMap: Record<CalculatorIconKey, LucideIcon> = {
+  percent: Percent,
+  banknote: Banknote,
+  chart: ChartNoAxesCombined,
+  landmark: Landmark,
 };
 
 export function CalculatorCard({
   href,
   title,
   description,
-  icon: Icon,
+  iconKey,
 }: CalculatorCardProps) {
+  const Icon = iconMap[iconKey];
+
   return (
     <Card className="flex h-full flex-col transition-colors hover:border-foreground/15">
       <CardHeader>
@@ -36,7 +56,9 @@ export function CalculatorCard({
       </CardContent>
       <CardFooter>
         <Button asChild className="w-full">
-          <Link href={href}>Aracı aç</Link>
+          <Link href={href} onClick={() => track("calculator_open", { calculator: title, href })}>
+            Aracı aç
+          </Link>
         </Button>
       </CardFooter>
     </Card>

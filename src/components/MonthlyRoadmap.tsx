@@ -183,8 +183,26 @@ export function MonthlyRoadmap({
   isTargetMode,
 }: MonthlyRoadmapProps) {
   const visibleRows = rows.filter((row) => row.monthIndex > 0);
-  const groups = groupRowsByYear(visibleRows);
   const firstMonth = visibleRows[0];
+  const currentPoint = visibleRows[visibleRows.length - 1];
+
+  if (visibleRows.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Aylık takip planı</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Bu senaryoda ek aylık takip adımı gerekmiyor. Hedef başlangıçta
+            karşılanmış olabilir.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const groups = groupRowsByYear(visibleRows);
   const nextMilestone = getNextMilestone(visibleRows);
 
   return (
@@ -208,7 +226,7 @@ export function MonthlyRoadmap({
       </CardHeader>
       {isOpen ? (
         <CardContent className="flex flex-col gap-5">
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-5">
             <RoadmapMetric label="Bu ayki plan" value={formatCurrency(firstMonth?.plannedContribution ?? 0)} />
             <RoadmapMetric label="Sıradaki eşik" value={nextMilestone} />
             <RoadmapMetric
@@ -216,8 +234,12 @@ export function MonthlyRoadmap({
               value={summary.durationLabel}
             />
             <RoadmapMetric
+              label="Katkı zamanı"
+              value={summary.contributionTimingLabel ?? "Ay sonu"}
+            />
+            <RoadmapMetric
               label="Planın geldiği nokta"
-              value={formatPercent(firstMonth?.progressPercent ?? 0)}
+              value={formatPercent(currentPoint?.progressPercent ?? 0)}
             />
           </div>
 
